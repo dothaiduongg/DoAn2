@@ -1,212 +1,436 @@
-#include<PID_v1.h>
-#include <Arduino_FreeRTOS.h>
-#define encoderA1 2
-#define encoderB1 8
-#define encoderA2 3
-#define encoderB2 7
-#define pwm1 10
-#define pwm2 9
-#define pwm3 6
-#define pwm4 5
-#define LOOPTIME 10
-#define ROBOT_MOTOR_PPR 100
-#define ROBOT_WHEEL_RADIUS 0.725f
-#define ROBOT_WHEEL_SEPARATION 0.26f
-#define sample_time_ms 10
-#define pid_rate float(sample_time_ms) / 1000.0f
-#define ROBOT_MAX_LINEAR_M_S 0.2
-#define ROBOT_MIN_LINEAR_M_S -0.2
-#define ROBOT_MAX_ANGULAR_R_S 2.0
-#define ROBOT_MIN_ANGULAR_R_S -2.0
-double kp1=12.2, ki1=100, kd1=0.01;
-double kp2=11, ki2=100, kd2=0.01;
-double input1 = 0, output1 = 0, setpoint1 = 0;
-double input2 = 0, output2 = 0, setpoint2 = 0;
-unsigned long lastTime, now;
-unsigned long lastTime2, now2;
-volatile long encoderPos1 = 0, last_pos1 = 0, lastpos1 = 0;
-volatile long encoderPos2 = 0, last_pos2 = 0, lastpos2 = 0;
-double l_pos, r_pos;
-unsigned long l_ticks_prev, r_ticks_prev;
-double x_pos, y_pos, theta, v, w; 
-double l_speed, r_speed;
-double linear, angular;
-int32_t dl_ticks, dr_ticks;
-String inByte; 
-PID myPID(&input1, &output1, &setpoint1, kp1, ki1, kd1, DIRECT);
-PID myPID2(&input2, &output2, &setpoint2, kp2, ki2, kd2, DIRECT);
-
-void update_pid(int32_t l_encoder_ticks, int32_t r_encoder_ticks ) {
-    int32_t l_ticks = l_encoder_ticks;
-    int32_t r_ticks = r_encoder_ticks;
-    l_pos = (2*PI)*l_ticks/ROBOT_MOTOR_PPR;
-    r_pos = (2*PI)*r_ticks/ROBOT_MOTOR_PPR;
-    dl_ticks = l_ticks - l_ticks_prev;
-    dr_ticks = r_ticks - r_ticks_prev;
-    updateOdometry(dl_ticks, dr_ticks);
-    l_speed = (2.0 * PI) * dl_ticks / (ROBOT_MOTOR_PPR * pid_rate);
-    r_speed = (2.0 * PI) * dr_ticks / (ROBOT_MOTOR_PPR * pid_rate);
-    v = (ROBOT_WHEEL_RADIUS / 2.0f) * (l_speed + r_speed);
-    w = (ROBOT_WHEEL_RADIUS / ROBOT_WHEEL_SEPARATION) * (r_speed - l_speed);
-    input1 = l_speed;
-    input2 = r_speed;
-    myPID.Compute();
-    myPID2.Compute();
-    pwmOut1(output1);
-    pwmOut2(output2);
-    l_ticks_prev = l_ticks;
-    r_ticks_prev = r_ticks;
-}
-void updateOdometry(int32_t dl_ticks, int32_t dr_ticks) {
-    double delta_l = (2 * PI * ROBOT_WHEEL_RADIUS * dl_ticks) / ROBOT_MOTOR_PPR;
-    double delta_r = (2 * PI * ROBOT_WHEEL_RADIUS * dr_ticks) / ROBOT_MOTOR_PPR;
-    double delta_center = (delta_l + delta_r) / 2;
-    x_pos += delta_center * cos(theta);
-    y_pos += delta_center * sin(theta);
-    theta += (delta_r - delta_r)/ROBOT_WHEEL_SEPARATION;
-}
-void setUnicycle(double v, double w) {
-    //limit value
-    if(v > ROBOT_MAX_LINEAR_M_S) v = ROBOT_MAX_LINEAR_M_S;
-    if(v < ROBOT_MIN_LINEAR_M_S) v = ROBOT_MIN_LINEAR_M_S;
-    if(w > ROBOT_MAX_ANGULAR_R_S) w = ROBOT_MAX_ANGULAR_R_S;
-    if(w < ROBOT_MIN_ANGULAR_R_S) w = ROBOT_MIN_ANGULAR_R_S;
-    double v_l = (2 * v - w * ROBOT_WHEEL_SEPARATION) / (2 * ROBOT_WHEEL_RADIUS);
-    double v_r = (2 * v + w * ROBOT_WHEEL_SEPARATION) / (2 * ROBOT_WHEEL_RADIUS);
-    linear = v;
-    angular = w;
-    setWheel(v_l, v_r);
-}
-void setWheel(double left_speed, double right_speed) {
-    setpoint1 = left_speed;
-    setpoint2 = right_speed;
-}
-void publishData() {
-    Serial.print(x_pos); Serial.print("/");
-    Serial.print(y_pos); Serial.print("/");
-    Serial.print(theta); Serial.print("/");
-    Serial.print(l_speed); Serial.print("/");
-    Serial.print(r_speed); Serial.print("/");
-    Serial.print(output1); Serial.print("/");
-    Serial.print(output2); Serial.print("/"); 
-}
-void getData() {
-    int leng, j;
-    String data, data2;
-    while(Serial.available()) {
-        inByte = Serial.readString();leng = inByte.length();
-        for(int i=0; i<leng; i++) {
-            if(inByte[i]!='/') {
-                data+=inByte[i];
-            }
-            else {
-                data+= ' ';
-                j = i+1; 
-            }
-        }
-        for(int i=j; i<leng; i++) 
-        {
-            data2 += data[i];
-            data[i] = ' ';
-        }
-        linear = data.toDouble();
-        angular = data2.toDouble();
-        publishData();
+/*
+ * Author: Automatic Addison
+ * Website: https://automaticaddison.com
+ * Description: ROS node that publishes the accumulated ticks for each wheel
+ * (/right_ticks and /left_ticks topics) at regular intervals using the 
+ * built-in encoder (forward = positive; reverse = negative). 
+ * The node also subscribes to linear & angular velocity commands published on 
+ * the /cmd_vel topic to drive the robot accordingly.
+ * Reference: Practical Robotics in C++ book (ISBN-10 : 9389423465)
+ */
+ 
+#include <ros.h>
+#include <std_msgs/Int16.h>
+#include <geometry_msgs/Twist.h>
+ 
+// Handles startup and shutdown of ROS
+ros::NodeHandle nh;
+ 
+////////////////// Tick Data Publishing Variables and Constants ///////////////
+ 
+// Encoder output to Arduino Interrupt pin. Tracks the tick count.
+#define ENC_IN_LEFT_A 2
+#define ENC_IN_RIGHT_A 3
+ 
+// Other encoder output to Arduino to keep track of wheel direction
+// Tracks the direction of rotation.
+#define ENC_IN_LEFT_B 4
+#define ENC_IN_RIGHT_B 11
+ 
+// True = Forward; False = Reverse
+boolean Direction_left = true;
+boolean Direction_right = true;
+ 
+// Minumum and maximum values for 16-bit integers
+// Range of 65,535
+const int encoder_minimum = -32768;
+const int encoder_maximum = 32767;
+ 
+// Keep track of the number of wheel ticks
+std_msgs::Int16 right_wheel_tick_count;
+ros::Publisher rightPub("right_ticks", &right_wheel_tick_count);
+ 
+std_msgs::Int16 left_wheel_tick_count;
+ros::Publisher leftPub("left_ticks", &left_wheel_tick_count);
+ 
+// Time interval for measurements in milliseconds
+const int interval = 30;
+long previousMillis = 0;
+long currentMillis = 0;
+ 
+////////////////// Motor Controller Variables and Constants ///////////////////
+ 
+// Motor A connections
+const int enA = 9;
+const int in1 = 5;
+const int in2 = 6;
+  
+// Motor B connections
+const int enB = 10; 
+const int in3 = 7;
+const int in4 = 8;
+ 
+// How much the PWM value can change each cycle
+const int PWM_INCREMENT = 1;
+ 
+// Number of ticks per wheel revolution. We won't use this in this code.
+const int TICKS_PER_REVOLUTION = 620;
+ 
+// Wheel radius in meters
+const double WHEEL_RADIUS = 0.033;
+ 
+// Distance from center of the left tire to the center of the right tire in m
+const double WHEEL_BASE = 0.17;
+ 
+// Number of ticks a wheel makes moving a linear distance of 1 meter
+// This value was measured manually.
+const double TICKS_PER_METER = 3100; // Originally 2880
+ 
+// Proportional constant, which was measured by measuring the 
+// PWM-Linear Velocity relationship for the robot.
+const int K_P = 278;
+ 
+// Y-intercept for the PWM-Linear Velocity relationship for the robot
+const int b = 52;
+ 
+// Correction multiplier for drift. Chosen through experimentation.
+const int DRIFT_MULTIPLIER = 120;
+ 
+// Turning PWM output (0 = min, 255 = max for PWM values)
+const int PWM_TURN = 80;
+ 
+// Set maximum and minimum limits for the PWM values
+const int PWM_MIN = 80; // about 0.1 m/s
+const int PWM_MAX = 100; // about 0.172 m/s
+ 
+// Set linear velocity and PWM variable values for each wheel
+double velLeftWheel = 0;
+double velRightWheel = 0;
+double pwmLeftReq = 0;
+double pwmRightReq = 0;
+ 
+// Record the time that the last velocity command was received
+double lastCmdVelReceived = 0;
+ 
+/////////////////////// Tick Data Publishing Functions ////////////////////////
+ 
+// Increment the number of ticks
+void right_wheel_tick() {
+   
+  // Read the value for the encoder for the right wheel
+  int val = digitalRead(ENC_IN_RIGHT_B);
+ 
+  if (val == LOW) {
+    Direction_right = false; // Reverse
+  }
+  else {
+    Direction_right = true; // Forward
+  }
+   
+  if (Direction_right) {
+     
+    if (right_wheel_tick_count.data == encoder_maximum) {
+      right_wheel_tick_count.data = encoder_minimum;
     }
+    else {
+      right_wheel_tick_count.data++;  
+    }    
+  }
+  else {
+    if (right_wheel_tick_count.data == encoder_minimum) {
+      right_wheel_tick_count.data = encoder_maximum;
+    }
+    else {
+      right_wheel_tick_count.data--;  
+    }   
+  }
 }
+ 
+// Increment the number of ticks
+void left_wheel_tick() {
+   
+  // Read the value for the encoder for the left wheel
+  int val = digitalRead(ENC_IN_LEFT_B);
+ 
+  if (val == LOW) {
+    Direction_left = true; // Reverse
+  }
+  else {
+    Direction_left = false; // Forward
+  }
+   
+  if (Direction_left) {
+    if (left_wheel_tick_count.data == encoder_maximum) {
+      left_wheel_tick_count.data = encoder_minimum;
+    }
+    else {
+      left_wheel_tick_count.data++;  
+    }  
+  }
+  else {
+    if (left_wheel_tick_count.data == encoder_minimum) {
+      left_wheel_tick_count.data = encoder_maximum;
+    }
+    else {
+      left_wheel_tick_count.data--;  
+    }   
+  }
+}
+ 
+/////////////////////// Motor Controller Functions ////////////////////////////
+ 
+// Calculate the left wheel linear velocity in m/s every time a 
+// tick count message is rpublished on the /left_ticks topic. 
+void calc_vel_left_wheel(){
+   
+  // Previous timestamp
+  static double prevTime = 0;
+   
+  // Variable gets created and initialized the first time a function is called.
+  static int prevLeftCount = 0;
+ 
+  // Manage rollover and rollunder when we get outside the 16-bit integer range 
+  int numOfTicks = (65535 + left_wheel_tick_count.data - prevLeftCount) % 65535;
+ 
+  // If we have had a big jump, it means the tick count has rolled over.
+  if (numOfTicks > 10000) {
+        numOfTicks = 0 - (65535 - numOfTicks);
+  }
+ 
+  // Calculate wheel velocity in meters per second
+  velLeftWheel = numOfTicks/TICKS_PER_METER/((millis()/1000)-prevTime);
+ 
+  // Keep track of the previous tick count
+  prevLeftCount = left_wheel_tick_count.data;
+ 
+  // Update the timestamp
+  prevTime = (millis()/1000);
+ 
+}
+ 
+// Calculate the right wheel linear velocity in m/s every time a 
+// tick count message is published on the /right_ticks topic. 
+void calc_vel_right_wheel(){
+   
+  // Previous timestamp
+  static double prevTime = 0;
+   
+  // Variable gets created and initialized the first time a function is called.
+  static int prevRightCount = 0;
+ 
+  // Manage rollover and rollunder when we get outside the 16-bit integer range 
+  int numOfTicks = (65535 + right_wheel_tick_count.data - prevRightCount) % 65535;
+ 
+  if (numOfTicks > 10000) {
+        numOfTicks = 0 - (65535 - numOfTicks);
+  }
+ 
+  // Calculate wheel velocity in meters per second
+  velRightWheel = numOfTicks/TICKS_PER_METER/((millis()/1000)-prevTime);
+ 
+  prevRightCount = right_wheel_tick_count.data;
+   
+  prevTime = (millis()/1000);
+ 
+}
+ 
+// Take the velocity command as input and calculate the PWM values.
+void calc_pwm_values(const geometry_msgs::Twist& cmdVel) {
+   
+  // Record timestamp of last velocity command received
+  lastCmdVelReceived = (millis()/1000);
+   
+  // Calculate the PWM value given the desired velocity 
+  pwmLeftReq = K_P * cmdVel.linear.x + b;
+  pwmRightReq = K_P * cmdVel.linear.x + b;
+ 
+  // Check if we need to turn 
+  if (cmdVel.angular.z != 0.0) {
+ 
+    // Turn left
+    if (cmdVel.angular.z > 0.0) {
+      pwmLeftReq = -PWM_TURN;
+      pwmRightReq = PWM_TURN;
+    }
+    // Turn right    
+    else {
+      pwmLeftReq = PWM_TURN;
+      pwmRightReq = -PWM_TURN;
+    }
+  }
+  // Go straight
+  else {
+     
+    // Remove any differences in wheel velocities 
+    // to make sure the robot goes straight
+    static double prevDiff = 0;
+    static double prevPrevDiff = 0;
+    double currDifference = velLeftWheel - velRightWheel; 
+    double avgDifference = (prevDiff+prevPrevDiff+currDifference)/3;
+    prevPrevDiff = prevDiff;
+    prevDiff = currDifference;
+ 
+    // Correct PWM values of both wheels to make the vehicle go straight
+    pwmLeftReq -= (int)(avgDifference * DRIFT_MULTIPLIER);
+    pwmRightReq += (int)(avgDifference * DRIFT_MULTIPLIER);
+  }
+ 
+  // Handle low PWM values
+  if (abs(pwmLeftReq) < PWM_MIN) {
+    pwmLeftReq = 0;
+  }
+  if (abs(pwmRightReq) < PWM_MIN) {
+    pwmRightReq = 0;  
+  }  
+}
+ 
+void set_pwm_values() {
+ 
+  // These variables will hold our desired PWM values
+  static int pwmLeftOut = 0;
+  static int pwmRightOut = 0;
+ 
+  // If the required PWM is of opposite sign as the output PWM, we want to
+  // stop the car before switching direction
+  static bool stopped = false;
+  if ((pwmLeftReq * velLeftWheel < 0 && pwmLeftOut != 0) ||
+      (pwmRightReq * velRightWheel < 0 && pwmRightOut != 0)) {
+    pwmLeftReq = 0;
+    pwmRightReq = 0;
+  }
+ 
+  // Set the direction of the motors
+  if (pwmLeftReq > 0) { // Left wheel forward
+    digitalWrite(in1, HIGH);
+    digitalWrite(in2, LOW);
+  }
+  else if (pwmLeftReq < 0) { // Left wheel reverse
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, HIGH);
+  }
+  else if (pwmLeftReq == 0 && pwmLeftOut == 0 ) { // Left wheel stop
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, LOW);
+  }
+  else { // Left wheel stop
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, LOW); 
+  }
+ 
+  if (pwmRightReq > 0) { // Right wheel forward
+    digitalWrite(in3, HIGH);
+    digitalWrite(in4, LOW);
+  }
+  else if(pwmRightReq < 0) { // Right wheel reverse
+    digitalWrite(in3, LOW);
+    digitalWrite(in4, HIGH);
+  }
+  else if (pwmRightReq == 0 && pwmRightOut == 0) { // Right wheel stop
+    digitalWrite(in3, LOW);
+    digitalWrite(in4, LOW);
+  }
+  else { // Right wheel stop
+    digitalWrite(in3, LOW);
+    digitalWrite(in4, LOW); 
+  }
+ 
+  // Increase the required PWM if the robot is not moving
+  if (pwmLeftReq != 0 && velLeftWheel == 0) {
+    pwmLeftReq *= 1.5;
+  }
+  if (pwmRightReq != 0 && velRightWheel == 0) {
+    pwmRightReq *= 1.5;
+  }
+ 
+  // Calculate the output PWM value by making slow changes to the current value
+  if (abs(pwmLeftReq) > pwmLeftOut) {
+    pwmLeftOut += PWM_INCREMENT;
+  }
+  else if (abs(pwmLeftReq) < pwmLeftOut) {
+    pwmLeftOut -= PWM_INCREMENT;
+  }
+  else{}
+   
+  if (abs(pwmRightReq) > pwmRightOut) {
+    pwmRightOut += PWM_INCREMENT;
+  }
+  else if(abs(pwmRightReq) < pwmRightOut) {
+    pwmRightOut -= PWM_INCREMENT;
+  }
+  else{}
+ 
+  // Conditional operator to limit PWM output at the maximum 
+  pwmLeftOut = (pwmLeftOut > PWM_MAX) ? PWM_MAX : pwmLeftOut;
+  pwmRightOut = (pwmRightOut > PWM_MAX) ? PWM_MAX : pwmRightOut;
+ 
+  // PWM output cannot be less than 0
+  pwmLeftOut = (pwmLeftOut < 0) ? 0 : pwmLeftOut;
+  pwmRightOut = (pwmRightOut < 0) ? 0 : pwmRightOut;
+ 
+  // Set the PWM value on the pins
+  analogWrite(enA, pwmLeftOut); 
+  analogWrite(enB, pwmRightOut); 
+}
+ 
+// Set up ROS subscriber to the velocity command
+ros::Subscriber<geometry_msgs::Twist> subCmdVel("cmd_vel", &calc_pwm_values );
+ 
 void setup() {
-// put your setup code here, to run once:
-    Serial.begin(9600);
-    pinMode(encoderA1, INPUT_PULLUP);
-    pinMode(encoderB1, INPUT_PULLUP);
-    pinMode(encoderA2, INPUT_PULLUP);
-    pinMode(encoderB2, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(encoderA1), ISR_encoderA1, FALLING);
-    attachInterrupt(digitalPinToInterrupt(encoderA2), ISR_encoderA2, FALLING);
-    pinMode(pwm1, OUTPUT);
-    pinMode(pwm2, OUTPUT);
-    pinMode(pwm3, OUTPUT);
-    pinMode(pwm4, OUTPUT);
-    TCCR1B = TCCR1B & 0b11111000 | 1; // set 31KHz PWM to 
-    prevent motor noise
-    TCCR0A = _BV(COM0A1) | _BV(COM0B1) | _BV(WGM00); 
-    TCCR0B = _BV(CS00); 
-    myPID.SetMode(AUTOMATIC);
-    myPID.SetSampleTime(1);
-    myPID.SetOutputLimits(-255, 255);
-    myPID2.SetMode(AUTOMATIC);
-    myPID2.SetSampleTime(1);
-    myPID2.SetOutputLimits(-255, 255);
+ 
+  // Set pin states of the encoder
+  pinMode(ENC_IN_LEFT_A , INPUT_PULLUP);
+  pinMode(ENC_IN_LEFT_B , INPUT);
+  pinMode(ENC_IN_RIGHT_A , INPUT_PULLUP);
+  pinMode(ENC_IN_RIGHT_B , INPUT);
+ 
+  // Every time the pin goes high, this is a tick
+  attachInterrupt(digitalPinToInterrupt(ENC_IN_LEFT_A), left_wheel_tick, RISING);
+  attachInterrupt(digitalPinToInterrupt(ENC_IN_RIGHT_A), right_wheel_tick, RISING);
+   
+  // Motor control pins are outputs
+  pinMode(enA, OUTPUT);
+  pinMode(enB, OUTPUT);
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);
+  
+  // Turn off motors - Initial state
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, LOW);
+  
+  // Set the motor speed
+  analogWrite(enA, 0); 
+  analogWrite(enB, 0);
+ 
+  // ROS Setup
+  nh.getHardware()->setBaud(115200);
+  nh.initNode();
+  nh.advertise(rightPub);
+  nh.advertise(leftPub);
+  nh.subscribe(subCmdVel);
 }
+ 
 void loop() {
-    now = millis();
-    if(now - lastTime > LOOPTIME)
-    {
-        lastTime = now;
-        getData();
-        setUnicycle(linear, angular);
-        update_pid(encoderPos1, encoderPos2);
-        updateOdometry(dl_ticks, dr_ticks);
-    }
-}
-void pwmOut1(int out) {
-    if(out > 0) {
-        analogWrite(pwm1, 0);
-        analogWrite(pwm2, abs(out));
-    }
-    if(out < 0) {
-        analogWrite(pwm1, abs(out));
-        analogWrite(pwm2, 0);
-    }
-}
-void pwmOut2(int out) {
-    if(out > 0) {
-        analogWrite(pwm3, 0);
-        analogWrite(pwm4, abs(out));
-    }
-    if(out < 0) {
-        analogWrite(pwm3, abs(out));
-        analogWrite(pwm4, 0);
-    }
-}
-void ISR_encoderA1() {
-    bool PinB = digitalRead(encoderB1);
-    bool PinA = digitalRead(encoderA1);
-    if (PinB == LOW) {
-        if (PinA == HIGH) {
-            encoderPos1++;
-        }
-        else {
-
-            encoderPos1--;
-        }
-    }
-    else {
-        if (PinA == HIGH) {
-            encoderPos1--;
-        }
-        else {
-            encoderPos1++;
-        }
-    }
-}
-void ISR_encoderA2() {
-    bool PinB = digitalRead(encoderB2);
-    bool PinA = digitalRead(encoderA2);
-    if (PinB == LOW) {
-        if (PinA == HIGH) {
-            encoderPos2--;
-        }
-        else {
-            encoderPos2++;
-        }
-    }
-    else {
-        if (PinA == HIGH) {
-            encoderPos2++;
-        }
-        else {
-            encoderPos2--;
-        }
-    }
+   
+  nh.spinOnce();
+   
+  // Record the time
+  currentMillis = millis();
+ 
+  // If the time interval has passed, publish the number of ticks,
+  // and calculate the velocities.
+  if (currentMillis - previousMillis > interval) {
+     
+    previousMillis = currentMillis;
+ 
+    // Publish tick counts to topics
+    leftPub.publish( &left_wheel_tick_count );
+    rightPub.publish( &right_wheel_tick_count );
+ 
+    // Calculate the velocity of the right and left wheels
+    calc_vel_right_wheel();
+    calc_vel_left_wheel();
+     
+  }
+   
+  // Stop the car if there are no cmd_vel messages
+  if((millis()/1000) - lastCmdVelReceived > 1) {
+    pwmLeftReq = 0;
+    pwmRightReq = 0;
+  }
+ 
+  set_pwm_values();
 }
