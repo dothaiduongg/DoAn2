@@ -37,6 +37,7 @@ const int encoder_minimum = -32768;
 const int encoder_maximum = 32767;
  
 // Keep track of the number of wheel ticks
+// dang ky topic trong ROS
 std_msgs::Int16 right_wheel_tick_count;
 ros::Publisher rightPub("right_ticks", &right_wheel_tick_count);
  
@@ -109,14 +110,12 @@ void right_wheel_tick() {
    
   // Read the value for the encoder for the right wheel
   int val = digitalRead(ENC_IN_RIGHT_B);
- 
   if (val == LOW) {
     Direction_right = false; // Reverse
   }
   else {
     Direction_right = true; // Forward
   }
-   
   if (Direction_right) {
      
     if (right_wheel_tick_count.data == encoder_maximum) {
