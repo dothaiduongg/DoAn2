@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
      Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+   
      For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
 <robot name="robot_base">
   <link
@@ -194,7 +195,7 @@
     </collision>
   </link>
   <joint
-    name="CASTER"
+    name="CASTER_joint"
     type="fixed">
     <origin
       xyz="0.0759035293244633 1.04273562376855E-05 -0.0299999999999997"
@@ -254,7 +255,7 @@
     </collision>
   </link>
   <joint
-    name="Lidar"
+    name="Lidar_joint"
     type="fixed">
     <origin
       xyz="0.0659038792794608 1.07773112351106E-05 0.134299800000001"
@@ -267,50 +268,78 @@
       xyz="0 0 0" />
   </joint>
 
-  <!--######################################################################-->
-<gazebo>
-  <plugin name="diff_drive_controller" filename="libgazebo_ros_diff_drive.so">
-    <robotNamespace>/</robotNamespace>
-    <legacyMode>false</legacyMode>
-    <alwaysOn>true</alwaysOn>
-    <commandTopic>cmd_vel</commandTopic>
-    <odometryTopic>odom</odometryTopic>
-    <odometryFrame>map</odometryFrame>
-    <robotBaseFrame>base_link</robotBaseFrame>
-    <wheelSeparation>0.2</wheelSeparation> <!-- Khoảng cách giữa hai bánh xe trái và phải -->
-    <wheelDiameter>0.15</wheelDiameter> <!-- Đường kính bánh xe -->
-    <updateRate>100.0</updateRate>
-    <leftJoint>Wheel_Left</leftJoint>
-    <rightJoint>Wheel_Right</rightJoint>
+  <gazebo>
+      <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+        <robotNamespace>/</robotNamespace>
+        <controlPeriod>0.001</controlPeriod>
+        <legacyModeNS>false</legacyModeNS>
+      </plugin>
+  </gazebo>
 
-    <wheelTorque>10</wheelTorque>
-    <publishTf>1</publishTf>
-    <wheelAcceleration>2.8</wheelAcceleration>
-    <publishWheelJointState>true</publishWheelJointState>
-    <publishWheelTF>false</publishWheelTF>
-    <odometrySource>world</odometrySource>
-    <rosDebugLevel>Debug</rosDebugLevel>
-    <torque>5.0</torque>
+  <gazebo>
+    <plugin name="diff_drive_controller" filename="libgazebo_ros_diff_drive.so">
+      <robotNamespace>/</robotNamespace>
+      <legacyMode>false</legacyMode>
+      <alwaysOn>true</alwaysOn>
+      <commandTopic>cmd_vel</commandTopic>
+      <odometryTopic>odom</odometryTopic>
+      <odometryFrame>map</odometryFrame>
+      <robotBaseFrame>base_link</robotBaseFrame>
+      <wheelSeparation>0.2</wheelSeparation> <!-- Khoảng cách giữa hai bánh xe trái và phải -->
+      <wheelDiameter>0.15</wheelDiameter> <!-- Đường kính bánh xe -->
+      <updateRate>100.0</updateRate>
+      <leftJoint>Wheel_Left_joint</leftJoint>
+      <rightJoint>Wheel_Right_joint</rightJoint>
 
-  </plugin>
-</gazebo>
+      <wheelTorque>10</wheelTorque>
+      <publishTf>1</publishTf>
+      <wheelAcceleration>2.8</wheelAcceleration>
+      <publishWheelJointState>true</publishWheelJointState>
+      <publishWheelTF>false</publishWheelTF>
+      <odometrySource>world</odometrySource>
+      <rosDebugLevel>Debug</rosDebugLevel>
+      <torque>5.0</torque>
 
-<!-- Thêm các thuộc tính ma sát và trọng lực cho các bánh xe -->
-<gazebo reference="Wheel_Left">
- <mu1 value="0.9"/>
- <mu2 value="0.9"/>
- <kp value="100000.0" />
- <kd value="1.0" />
- <fdir1 value="1 0 0"/>
-</gazebo>
+    </plugin>
+  </gazebo>
 
-<gazebo reference="Wheel_Right">
- <mu1 value="0.9"/>
- <mu2 value="0.9"/>
- <kp value="100000.0" />
- <kd value="1.0" />
- <fdir1 value="1 0 0"/>
-</gazebo>
+  <!-- Thêm các thuộc tính ma sát và trọng lực cho các bánh xe -->
+  <gazebo reference="Wheel_Left">
+    <mu1 value="0.9"/>
+    <mu2 value="0.9"/>
+    <kp value="100000.0" />
+    <kd value="1.0" />
+    <fdir1 value="1 0 0"/>
+  </gazebo>
 
+  <gazebo reference="Wheel_Right">
+    <mu1 value="0.9"/>
+    <mu2 value="0.9"/>
+    <kp value="100000.0" />
+    <kd value="1.0" />
+    <fdir1 value="1 0 0"/>
+  </gazebo>
+
+  <transmission name="front_right_wheel_trans" type="SimpleTransmission">
+    <type>transmission_interface/SimpleTransmission</type>
+    <actuator name="front_right_wheel_motor">
+    <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+    <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+    <joint name="Wheel_Right_joint">
+    <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+    </joint>
+  </transmission>
+
+  <transmission name="rear_left_wheel_trans" type="SimpleTransmission">
+    <type>transmission_interface/SimpleTransmission</type>
+    <actuator name="rear_left_wheel_motor">
+    <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+    <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+    <joint name="Wheel_Left_joint">
+    <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+    </joint>
+  </transmission>
 </robot>
 
