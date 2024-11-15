@@ -16,5 +16,5 @@
     name="rviz"
     pkg="rviz"
     type="rviz"
-    args="-d $(find mobile_manipulator_body)/urdf.rviz" />
+    args="-d $(find mobile_manipulator_body)/rviz/robot.rviz" />
 </launch>
