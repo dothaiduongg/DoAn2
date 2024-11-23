@@ -1,14 +1,4 @@
-/*
- * Author: Automatic Addison
- * Website: https://automaticaddison.com
- * Description: ROS node that publishes the accumulated ticks for each wheel
- * (/right_ticks and /left_ticks topics) at regular intervals using the 
- * built-in encoder (forward = positive; reverse = negative). 
- * The node also subscribes to linear & angular velocity commands published on 
- * the /cmd_vel topic to drive the robot accordingly.
- * Reference: Practical Robotics in C++ book (ISBN-10 : 9389423465)
- */
- 
+
 #include <ros.h>
 #include <std_msgs/Int16.h>
 #include <geometry_msgs/Twist.h>
@@ -19,13 +9,13 @@ ros::NodeHandle nh;
 ////////////////// Tick Data Publishing Variables and Constants ///////////////
  
 // Encoder output to Arduino Interrupt pin. Tracks the tick count.
-#define ENC_IN_LEFT_A 2
-#define ENC_IN_RIGHT_A 3
+#define ENC_IN_LEFT_A 7
+#define ENC_IN_RIGHT_A 4
  
 // Other encoder output to Arduino to keep track of wheel direction
 // Tracks the direction of rotation.
-#define ENC_IN_LEFT_B 4
-#define ENC_IN_RIGHT_B 11
+#define ENC_IN_LEFT_B 3
+#define ENC_IN_RIGHT_B 2
  
 // True = Forward; False = Reverse
 boolean Direction_left = true;
@@ -52,14 +42,14 @@ long currentMillis = 0;
 ////////////////// Motor Controller Variables and Constants ///////////////////
  
 // Motor A connections
-const int enA = 9;
+const int enA = 8;
 const int in1 = 5;
-const int in2 = 6;
+const int in2 = 9;
   
 // Motor B connections
-const int enB = 10; 
-const int in3 = 7;
-const int in4 = 8;
+const int enB = 13; 
+const int in3 = 6;
+const int in4 = 10;
  
 // How much the PWM value can change each cycle
 const int PWM_INCREMENT = 1;
