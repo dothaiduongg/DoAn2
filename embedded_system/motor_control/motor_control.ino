@@ -9,7 +9,7 @@ ros::NodeHandle nh;
 ////////////////// Tick Data Publishing Variables and Constants ///////////////
  
 // Encoder output to Arduino Interrupt pin. Tracks the tick count.
-//Nano hỗ trợ ngắt trên chân 2 và 3 (INT0, INT1) -> sua chan enc left va right -> 
+//Nano hỗ trợ ngắt trên chân 2 và 3 (INT0, INT1) -> sua chan enc left va right -> done
 #define ENC_IN_LEFT_A 2
 #define ENC_IN_RIGHT_A 3
  
