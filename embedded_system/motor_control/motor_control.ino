@@ -9,13 +9,14 @@ ros::NodeHandle nh;
 ////////////////// Tick Data Publishing Variables and Constants ///////////////
  
 // Encoder output to Arduino Interrupt pin. Tracks the tick count.
-#define ENC_IN_LEFT_A 7
-#define ENC_IN_RIGHT_A 4
+//Nano hỗ trợ ngắt trên chân 2 và 3 (INT0, INT1) -> sua chan enc left va right -> 
+#define ENC_IN_LEFT_A 2
+#define ENC_IN_RIGHT_A 3
  
 // Other encoder output to Arduino to keep track of wheel direction
 // Tracks the direction of rotation.
-#define ENC_IN_LEFT_B 3
-#define ENC_IN_RIGHT_B 2
+#define ENC_IN_LEFT_B 7
+#define ENC_IN_RIGHT_B 4
  
 // True = Forward; False = Reverse
 boolean Direction_left = true;
@@ -35,7 +36,7 @@ std_msgs::Int16 left_wheel_tick_count;
 ros::Publisher leftPub("left_ticks", &left_wheel_tick_count);
  
 // Time interval for measurements in milliseconds
-const int interval = 30;
+const int interval = 50; //change: increase interval from 30 to 50
 long previousMillis = 0;
 long currentMillis = 0;
  
