@@ -15,8 +15,8 @@ ros::NodeHandle nh;
  
 // Other encoder output to Arduino to keep track of wheel direction
 // Tracks the direction of rotation.
-#define ENC_IN_LEFT_B 7
-#define ENC_IN_RIGHT_B 4
+#define ENC_IN_LEFT_B 4
+#define ENC_IN_RIGHT_B 11
  
 // True = Forward; False = Reverse
 boolean Direction_left = true;
@@ -43,14 +43,14 @@ long currentMillis = 0;
 ////////////////// Motor Controller Variables and Constants ///////////////////
  
 // Motor A connections
-const int enA = 8;
+const int enA = 9;
 const int in1 = 5;
-const int in2 = 9;
+const int in2 = 6;
   
 // Motor B connections
-const int enB = 13; 
-const int in3 = 6;
-const int in4 = 10;
+const int enB = 10; 
+const int in3 = 7;
+const int in4 = 8;
  
 // How much the PWM value can change each cycle
 const int PWM_INCREMENT = 1;
