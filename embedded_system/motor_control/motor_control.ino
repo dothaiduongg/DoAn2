@@ -36,7 +36,7 @@ std_msgs::Int16 left_wheel_tick_count;
 ros::Publisher leftPub("left_ticks", &left_wheel_tick_count);
  
 // Time interval for measurements in milliseconds
-const int interval = 50; //change: increase interval from 30 to 50
+const int interval = 30; //change: increase interval from 30 to 50
 long previousMillis = 0;
 long currentMillis = 0;
  
@@ -79,11 +79,11 @@ const int b = 52;
 const int DRIFT_MULTIPLIER = 120;
  
 // Turning PWM output (0 = min, 255 = max for PWM values)
-const int PWM_TURN = 80;
+const int PWM_TURN =  125;
  
 // Set maximum and minimum limits for the PWM values
-const int PWM_MIN = 80; // about 0.1 m/s
-const int PWM_MAX = 100; // about 0.172 m/s
+const int PWM_MIN = 100; 
+const int PWM_MAX = 255; 
  
 // Set linear velocity and PWM variable values for each wheel
 double velLeftWheel = 0;
@@ -386,7 +386,7 @@ void setup() {
   analogWrite(enB, 0);
  
   // ROS Setup
-  nh.getHardware()->setBaud(115200);
+  nh.getHardware()->setBaud(57600);
   nh.initNode();
   nh.advertise(rightPub);
   nh.advertise(leftPub);
@@ -413,6 +413,8 @@ void loop() {
     // Calculate the velocity of the right and left wheels
     calc_vel_right_wheel();
     calc_vel_left_wheel();
+
+
      
   }
    
