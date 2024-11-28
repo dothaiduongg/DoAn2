@@ -1,4 +1,3 @@
-
 #include <ros.h>
 #include <std_msgs/Int16.h>
 #include <geometry_msgs/Twist.h>
@@ -56,13 +55,14 @@ const int in4 = 8;
 const int PWM_INCREMENT = 1;
  
 // Number of ticks per wheel revolution. We won't use this in this code.
+//calculate: https://automaticaddison.com/calculate-pulses-per-revolution-for-a-dc-motor-with-encoder/
 const int TICKS_PER_REVOLUTION = 620;
  
 // Wheel radius in meters
-const double WHEEL_RADIUS = 0.033;
+const double WHEEL_RADIUS = 0.04;
  
 // Distance from center of the left tire to the center of the right tire in m
-const double WHEEL_BASE = 0.17;
+const double WHEEL_BASE = 0.15;
  
 // Number of ticks a wheel makes moving a linear distance of 1 meter
 // This value was measured manually.
@@ -70,7 +70,7 @@ const double TICKS_PER_METER = 3100; // Originally 2880
  
 // Proportional constant, which was measured by measuring the 
 // PWM-Linear Velocity relationship for the robot.
-const int K_P = 278;
+const int K_P = 200;
  
 // Y-intercept for the PWM-Linear Velocity relationship for the robot
 const int b = 52;
@@ -79,7 +79,7 @@ const int b = 52;
 const int DRIFT_MULTIPLIER = 120;
  
 // Turning PWM output (0 = min, 255 = max for PWM values)
-const int PWM_TURN =  125;
+const int PWM_TURN =  120;
  
 // Set maximum and minimum limits for the PWM values
 const int PWM_MIN = 100; 
@@ -419,7 +419,7 @@ void loop() {
   }
    
   // Stop the car if there are no cmd_vel messages
-  if((millis()/1000) - lastCmdVelReceived > 1) {
+  if((millis()/1000) - lastCmdVelReceived > 2) {
     pwmLeftReq = 0;
     pwmRightReq = 0;
   }
