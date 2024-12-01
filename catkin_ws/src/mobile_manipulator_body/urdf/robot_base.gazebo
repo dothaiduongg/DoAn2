@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<robot>
+  <gazebo reference="Lidar">
+        <material>Gazebo/Red</material>
+
+        <sensor name="laser" type="ray">
+            <pose> 0 0 0 0 0 0 </pose>
+            <visualize>true</visualize>
+            <update_rate>10</update_rate>
+            <ray>
+                <scan>
+                    <horizontal>
+                        <samples>360</samples>
+                        <min_angle>-3.14</min_angle>
+                        <max_angle>3.14</max_angle>
+                    </horizontal>
+                </scan>
+                <range>
+                    <min>0.3</min>
+                    <max>12</max>
+                </range>
+            </ray>
+            <plugin name="laser" filename="libgazebo_ros_laser.so" >
+            <topicName>Lidar/scan</topicName>
+            <frameName>Lidar</frameName>
+            </plugin>
+        </sensor>
+  </gazebo>
+  <gazebo reference="CASTER">
+    <mu1>0.0</mu1>
+    <mu2>0.0</mu2>
+    <material>Gazebo/grey</material>
+  </gazebo>
+  <gazebo>
+    <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+      <robotNamespace>robot_base</robotNamespace>
+      <!-- <controlPeriod>0.001</controlPeriod> -->
+      <!-- <legacyModeNS>false</legacyModeNS> -->
+    </plugin>
+  </gazebo>
+  <gazebo>
+    <plugin name="differential_drive_controller" filename="libgazebo_ros_diff_drive.so">
+      <alwaysOn>true</alwaysOn>
+      <updateRate>100</updateRate>
+      <leftJoint>Wheel_Right_joint</leftJoint>
+      <rightJoint>Wheel_Left_joint</rightJoint>
+      <wheelSeparation>${chassisWidth+wheelWidth}</wheelSeparation>
+      <wheelDiameter>${2*wheelRadius}</wheelDiameter>
+      <torque>20</torque>
+      <commandTopic>cmd_vel</commandTopic>
+      <odometryTopic>odom</odometryTopic>
+      <odometryFrame>odom</odometryFrame>
+      <robotBaseFrame>base_link</robotBaseFrame>
+    </plugin>
+  </gazebo>
+</robot>
