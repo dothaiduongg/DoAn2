@@ -17,9 +17,16 @@
 
   <xacro:property name="mesh_path" value="package://mobile_manipulator_body/meshes/" />
 
+  <!-- base_footprint -->
+  <link name="base_footprint"/>
+
+  <joint name="base_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
+  </joint>
+
   <!-- Base link -->
-
-
   <link name="base_link">
     <inertial>
       <origin xyz="-0.0159332006311041 0.000378467506840827 0.0230631099886559" rpy="0 0 0" />

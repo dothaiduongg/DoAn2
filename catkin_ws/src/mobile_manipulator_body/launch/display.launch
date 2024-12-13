@@ -14,8 +14,9 @@
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find mobile_manipulator_body)/urdf.rviz" required="true" />
 
   <!-- Joint State Publisher -->
-  <node name="joint_state_publisher" pkg="joint_state_publisher_gui" type="joint_state_publisher_gui" />
-
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" >
+    <param name="use_gui" value="false"/>
+  </node>
   <!-- Robot State Publisher -->
   <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" output="screen" />
 
