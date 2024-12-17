@@ -1,16 +1,6 @@
 <?xml version="1.0"?>
 <launch>
-  <!-- Arguments -->
-
-    <!-- <param name="robot_description" command="$(find xacro)/xacro '$(find mobile_manipulator_body)/urdf/robot_base.urdf.xacro'"/> -->
-    <!-- Joint State Publisher -->
-    <!-- <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" >
-      <param name="use_gui" value="false"/>
-    </node> -->
-    <!-- Robot State Publisher --> 
-    <!-- <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" output="screen" /> -->
-
-  <arg name="scan_topic"     default="Lidar/scan"/>
+  <arg name="scan_topic"     default="scan"/>
   <arg name="initial_pose_x" default="0.0"/>
   <arg name="initial_pose_y" default="0.0"/>
   <arg name="initial_pose_a" default="0.0"/>
@@ -51,13 +41,8 @@
     <param name="odom_alpha4"               value="0.1"/>
     <param name="odom_frame_id"             value="odom"/>
     <param name="base_frame_id"             value="base_footprint"/>
+    <param name="global_frame_id"           value="map"/>
 
   </node>
-  <!-- <node pkg="tf" type="static_transform_publisher" name="base_to_laser_broadcaster" args="0 0 0 0 0 0 base_link laser 100"/>
-    <node pkg="tf" type="static_transform_publisher" name="odom_to_base_link" args="0 0 0 0 0 0 odom base_link 100"/>
-  <node pkg="tf" type="static_transform_publisher" name="map_to_odom" args="0 0 0 0 0 0 map odom 30" />
-  <arg name="map_file" default="$(find navstack_pub)/maps/my_map_lab.yaml"/>
-  <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" output="screen"/>
-  <node pkg="rviz" type="rviz" name="rviz" /> -->
 
 </launch>

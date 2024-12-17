@@ -16,7 +16,6 @@
   <xacro:include filename="$(find mobile_manipulator_body)/urdf/robot_base.gazebo" />
 
   <xacro:property name="mesh_path" value="package://mobile_manipulator_body/meshes/" />
-
   <!-- base_footprint -->
   <link name="base_footprint"/>
 
@@ -78,6 +77,8 @@
     <child link="Wheel_Left" />
     <axis xyz="-0.000221070416805364 0 0.999999975563903" />
   </joint>
+
+  
   <!-- Wheel Right -->
   <link name="Wheel_Right">
     <inertial>
